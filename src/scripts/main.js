@@ -1,6 +1,11 @@
 'use strict';
 
-const parseSalary = (text) => Number(text.replace(/[$,\s]/g, '')) || 0;
+const parseSalary = (text) => {
+  const n = Number(text.replace(/[$,\s]/g, ''));
+
+  return Number.isFinite(n) ? n : NaN;
+};
+
 const formatSalary = (num) => `$${Number(num).toLocaleString('en-US')}`;
 
 const table = document.querySelector('table');
@@ -18,7 +23,9 @@ const getCellValue = (tr, colIdx) => {
   }
 
   if (colIdx === 4) {
-    return parseSalary(text);
+    const v = parseSalary(text);
+
+    return Number.isFinite(v) ? v : 0;
   }
 
   return text.toLowerCase();
@@ -77,15 +84,6 @@ const showNotification = (type, title, text) => {
 
   box.setAttribute('data-qa', 'notification');
   box.className = type;
-  box.style.position = 'fixed';
-  box.style.right = '24px';
-  box.style.bottom = '24px';
-  box.style.zIndex = '1000';
-  box.style.padding = '12px 16px';
-  box.style.borderRadius = '8px';
-  box.style.background = type === 'success' ? '#2ecc71' : '#e74c3c';
-  box.style.color = '#fff';
-  box.style.boxShadow = '0 6px 20px rgba(0,0,0,.2)';
   box.innerHTML = `<strong>${title}</strong><div>${text}</div>`;
   document.body.append(box);
   setTimeout(() => box.remove(), 3000);
@@ -113,6 +111,7 @@ const createForm = () => {
   const form = document.createElement('form');
 
   form.className = 'new-employee-form';
+  form.noValidate = true;
 
   const title = document.createElement('h2');
 
@@ -122,29 +121,34 @@ const createForm = () => {
 
   inputName.name = 'name';
   inputName.type = 'text';
+  inputName.required = true;
   inputName.setAttribute('data-qa', 'name');
 
   const inputPosition = document.createElement('input');
 
   inputPosition.name = 'position';
   inputPosition.type = 'text';
+  inputPosition.required = true;
   inputPosition.setAttribute('data-qa', 'position');
 
   const inputAge = document.createElement('input');
 
   inputAge.name = 'age';
   inputAge.type = 'number';
+  inputAge.required = true;
   inputAge.setAttribute('data-qa', 'age');
 
   const inputSalary = document.createElement('input');
 
   inputSalary.name = 'salary';
   inputSalary.type = 'number';
+  inputSalary.required = true;
   inputSalary.setAttribute('data-qa', 'salary');
 
   const selectOffice = document.createElement('select');
 
   selectOffice.name = 'office';
+  selectOffice.required = true;
   selectOffice.setAttribute('data-qa', 'office');
 
   offices.forEach((city) => {
@@ -179,25 +183,22 @@ const createForm = () => {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
 
-    const empName = inputName.value.trim();
-    const empPosition = inputPosition.value.trim();
-    const empOffice = selectOffice.value.trim();
-    const empAge = Number(inputAge.value);
-    const empSalary = Number(inputSalary.value);
+    const rawName = inputName.value.trim();
+    const rawPosition = inputPosition.value.trim();
+    const rawAge = inputAge.value.trim();
+    const rawSalary = inputSalary.value.trim();
+    const rawOffice = selectOffice.value.trim();
 
-    if (
-      !empName ||
-      !empPosition ||
-      !empOffice ||
-      (!empAge && empAge !== 0) ||
-      (!empSalary && empSalary !== 0)
-    ) {
+    if (!rawName || !rawPosition || !rawAge || !rawSalary || !rawOffice) {
       showNotification('error', 'Validation error', 'All fields are required');
 
       return;
     }
 
-    if (empName.length < 4) {
+    const empAge = Number(rawAge);
+    const empSalary = Number(rawSalary);
+
+    if (rawName.length < 4) {
       showNotification(
         'error',
         'Invalid name',
@@ -207,8 +208,14 @@ const createForm = () => {
       return;
     }
 
-    if (empAge < 18 || empAge > 90) {
+    if (!Number.isFinite(empAge) || empAge < 18 || empAge > 90) {
       showNotification('error', 'Invalid age', 'Age must be between 18 and 90');
+
+      return;
+    }
+
+    if (!Number.isFinite(empSalary)) {
+      showNotification('error', 'Invalid salary', 'Salary must be a number');
 
       return;
     }
@@ -216,9 +223,9 @@ const createForm = () => {
     const tr = document.createElement('tr');
 
     [
-      empName,
-      empPosition,
-      empOffice,
+      rawName,
+      rawPosition,
+      rawOffice,
       String(empAge),
       formatSalary(empSalary),
     ].forEach((txt) => {
@@ -251,7 +258,14 @@ const startEdit = (td) => {
 
   input.className = 'cell-input';
   input.type = colIdx === 3 || colIdx === 4 ? 'number' : 'text';
-  input.value = colIdx === 4 ? parseSalary(initial) || '' : initial;
+
+  if (colIdx === 4) {
+    const parsed = parseSalary(initial);
+
+    input.value = Number.isNaN(parsed) ? '' : String(parsed);
+  } else {
+    input.value = initial;
+  }
   td.textContent = '';
   td.append(input);
   input.focus();
